@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mini Digital Product Passport</title>
+  <style>
+    body { font-family: 'Helvetica Neue', sans-serif; padding: 2rem; background: #f4f4f4; color: #333; }
+    h1 { font-size: 1.8rem; margin-bottom: 1rem; color: #005c4b; }
+    label { display: block; margin-top: 1rem; font-weight: bold; }
+    input, textarea, select { width: 100%; padding: 0.5rem; margin-top: 0.3rem; border: 1px solid #ccc; border-radius: 4px; }
+    button { margin-top: 2rem; padding: 0.8rem 1.5rem; font-size: 1rem; background: #005c4b; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    button:hover { background: #00473b; }
+    pre, .pdf-preview { background: #fff; padding: 1rem; margin-top: 2rem; border: 1px solid #ccc; border-radius: 4px; white-space: pre-wrap; }
+    #qr { margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>Mini-DPP Generator</h1>
+
+  <form id="dpp-form">
+    <label>Productnaam<input type="text" name="product_name"></label>
+    <label>Categorie<input type="text" name="product_category"></label>
+    <label>SKU<input type="text" name="sku"></label>
+
+    <label>Materiaal<input type="text" name="material"></label>
+    <label>Percentage<input type="number" name="percentage" min="0" max="100"></label>
+    <label>Herkomst (land)<input type="text" name="origin_country"></label>
+    <label>Certificaten<input type="text" name="certifications"></label>
+
+    <label>Productie: locatie<input type="text" name="production_location"></label>
+    <label>Leverancier<input type="text" name="supplier_name"></label>
+
+    <label>CO₂-impact (kg)<input type="number" step="0.1" name="carbon_footprint"></label>
+    <label>Recyclebaar<select name="recyclable"><option value="true">Ja</option><option value="false">Nee</option></select></label>
+    <label>Repareerbaar<select name="repairable"><option value="true">Ja</option><option value="false">Nee</option></select></label>
+
+    <label>Wasinstructies<textarea name="care_instructions"></textarea></label>
+    <label>Hergebruik / Recyclage info<textarea name="reuse_instructions"></textarea></label>
+
+    <button type="submit">Genereer DPP</button>
+  </form>
+
+  <div id="preview" class="pdf-preview"></div>
+  <canvas id="qr"></canvas>
+  <button id="download-json" style="display:none;">Download JSON</button>
+  <button id="download-pdf" style="display:none;">Download PDF</button>
+
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script>
+    const form = document.getElementById('dpp-form');
+    const preview = document.getElementById('preview');
+    const qrCanvas = document.getElementById('qr');
+    const downloadButton = document.getElementById('download-json');
+    const pdfButton = document.getElementById('download-pdf');
+
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      const json = {
+        product: {
+          name: form.product_name.value,
+          category: form.product_category.value,
+          sku: form.sku.value,
+          version: "1.0",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        },
+        materials: [{
+          material: form.material.value,
+          percentage: Number(form.percentage.value),
+          origin_country: form.origin_country.value,
+          certifications: form.certifications.value.split(',').map(s => s.trim())
+        }],
+        production: {
+          assembled_in: form.production_location.value,
+          supplier: {
+            name: form.supplier_name.value,
+            location: form.production_location.value,
+            tier: 1
+          }
+        },
+        sustainability: {
+          carbon_footprint_kg: Number(form.carbon_footprint.value),
+          recyclable: form.recyclable.value === "true",
+          repairable: form.repairable.value === "true",
+          eco_labels: form.certifications.value.split(',').map(s => s.trim())
+        },
+        usage: {
+          care_instructions: form.care_instructions.value,
+          reuse_instructions: form.reuse_instructions.value,
+          recycling_instructions: form.reuse_instructions.value
+        },
+        passport: {
+          qr_code_url: "https://dpp.example.com/passport/" + form.sku.value,
+          pdf_url: "https://dpp.example.com/passport/" + form.sku.value + ".pdf",
+          access_control: {
+            public: ["product.name", "product.category", "materials", "usage"],
+            private: ["production.supplier", "sustainability.carbon_footprint_kg"]
+          }
+        }
+      };
+
+      const formatted = JSON.stringify(json, null, 2);
+      preview.textContent = formatted;
+      downloadButton.style.display = 'inline-block';
+      pdfButton.style.display = 'inline-block';
+
+      QRCode.toCanvas(qrCanvas, json.passport.qr_code_url, function (error) {
+        if (error) console.error(error);
+      });
+
+      downloadButton.onclick = () => {
+        const blob = new Blob([formatted], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = json.product.sku + "_dpp.json";
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      pdfButton.onclick = () => {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        doc.setFontSize(14);
+        doc.text("Digital Product Passport", 10, 10);
+
+        doc.setFontSize(10);
+        doc.text(`Product: ${json.product.name}`, 10, 20);
+        doc.text(`Category: ${json.product.category}`, 10, 26);
+        doc.text(`Material: ${json.materials[0].material} (${json.materials[0].percentage}%)`, 10, 32);
+        doc.text(`Origin: ${json.materials[0].origin_country}`, 10, 38);
+        doc.text(`Certifications: ${json.materials[0].certifications.join(', ')}`, 10, 44);
+        doc.text(`CO2 Impact: ${json.sustainability.carbon_footprint_kg} kg`, 10, 50);
+        doc.text(`Recyclable: ${json.sustainability.recyclable}`, 10, 56);
+        doc.text(`Repairable: ${json.sustainability.repairable}`, 10, 62);
+
+        doc.text(`Care Instructions:`, 10, 72);
+        doc.text(json.usage.care_instructions, 10, 78);
+
+        doc.save(json.product.sku + "_dpp.pdf");
+      };
+    });
+  </script>
+</body>
+</html>
