@@ -162,8 +162,8 @@
         care: form.care.value
       };
       const json = JSON.stringify(data, null, 2);
-      const blob = new Blob([json], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
+      const encoded = encodeURIComponent(json);
+      const url = `https://degrootdewild.nl/dpp-viewer.html?data=${encoded}`;
 
       qrBox.innerHTML = '';
       QRCode.toCanvas(url, { width: 200 }, function (error, canvas) {
