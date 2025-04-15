@@ -1,8 +1,9 @@
+
 <!DOCTYPE html>
 <html lang="nl">
 <head>
   <meta charset="UTF-8">
-  <title>Digital Product Passport</title>
+  <title>DPP Profiel</title>
   <link href="https://fonts.googleapis.com/css2?family=Cooper+Hewitt&display=swap" rel="stylesheet">
   <style>
     body {
@@ -27,6 +28,12 @@
     .label {
       font-weight: bold;
     }
+    pre {
+      background: #eee;
+      padding: 1rem;
+      border-radius: 6px;
+      overflow-x: auto;
+    }
   </style>
 </head>
 <body>
@@ -37,16 +44,22 @@
 
   <script>
     const params = new URLSearchParams(window.location.search);
-    const data = params.get('data');
+    const encodedData = params.get('data');
     const content = document.getElementById('content');
 
-    if (!data) {
-      content.textContent = "Geen DPP-gegevens gevonden.";
-    } else {
-      const dpp = JSON.parse(decodeURIComponent(data));
-      content.innerHTML = Object.entries(dpp).map(([key, value]) => {
-        return `<div class="field"><span class="label">${key}:</span> ${value}</div>`;
-      }).join('');
+    try {
+      if (!encodedData) {
+        content.innerText = "⚠️ Geen DPP-gegevens gevonden in de URL.";
+      } else {
+        const json = decodeURIComponent(encodedData);
+        const data = JSON.parse(json);
+
+        content.innerHTML = Object.entries(data).map(([key, value]) => {
+          return `<div class="field"><span class="label">${key}:</span> ${value}</div>`;
+        }).join('');
+      }
+    } catch (e) {
+      content.innerHTML = `<p style="color:red;">❌ Fout bij inladen van DPP:</p><pre>${e.message}</pre>`;
     }
   </script>
 </body>
